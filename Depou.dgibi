@@ -1,0 +1,80 @@
+OPTI REST 'fichier_sortie_calculs' ; REST;
+
+opti sort 'VTK/Poutre_Result';
+i1 = 0;  
+REPE BO1(DIME TAB1.TEMPS);
+t1 = TAB1 . 'TEMPS' . i1;
+sig1 = TAB1 . 'CONTRAINTES' . i1;
+sig1ch = chan 'CHPO' sig1 MOD0 ;
+*sig1ch = chan 'CHPO' sig1 MOD0 ET MOD1 ET MOD2 ;
+depl1 = TAB1 . 'DEPLACEMENTS' . i1 ;
+* test pour avoir la force / pas concluant
+*charg1 = TAB1 . 'CHARGEMENT' . i1 ;
+*opti donn 5;
+
+opti sort 'VTK/Poutre_Result';
+sort 'VTK' VPt1Tot 'ptltot' VolMur 'mur'
+	VPt2Tot 'pout2' VPt3Tot 'pout3' sig1ch 'SIGM' depl1 'DEPL' 'TEMP' t1 ;	
+*sort 'VTK' VolTot 'massif' sig1ch 'SIGM' depl1 'DEPL' 'TEMP' t1 ;
+i1 = i1 + 1;
+list t1;
+FIN BO1;
+
+
+
+
+
+
+FIN ;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

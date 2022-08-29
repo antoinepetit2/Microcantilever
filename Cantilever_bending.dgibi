@@ -1,0 +1,504 @@
+*** Début du programme
+
+
+OPTI DIME 2 ELEM QUA4 ;
+
+
+********************************************************
+***** Choix des paramètres de l'ensemble considéré *****
+********************************************************
+* Exprimer les données en µm
+*** Largeur de la poutre
+B = 5.3E-6 ;
+B = FLOT (B) ;
+
+*** hauteur du toit 
+C = 2.3E-6 ;
+
+*** Largeur du maillage (doit être inférieur à la largeur de la poutre)
+a = 0.4E-6 ;
+
+*** Hauteur de la poutre (section carrée)
+Width = 3.2E-6 ;
+
+*NbElPout = 1 ;
+
+* Longueurs des différentes longueurs des matériaux qui constituent la poutre
+LPout1 = 2.1E-6 ;
+LPout2 = 2E-6 ;
+LPout3 = 16E-6 ;
+
+
+
+* Débord du mur d'encastrement à droite et gauche de la poutre
+LargMur = 8E-6 ;
+* Longueur de la base de la pointe jusqu'au bas du mur d'encastrement
+Prolonge = 8E-6 ;
+
+* Largeur et profondeur de l'entaille
+LargEnt = 1 ;
+ProfEnt = 2.8 ;
+
+*Longueur du "mur" d'encastrement
+ZVecMur = (-1)*10E-6 ;
+* Si on veut tracer les graphs avec l'assistant cast3m
+Graph = 0 ;
+
+* définition des paramètres matériaux
+
+* Materiau 1 (debut poutre et encastrement)
+YounMat1 = 237E9 ;
+KPoiss1 = 0.30 ;
+Sigy01 = 150E6 ;
+
+* Materiau 2 (milieu poutre)
+YounMat2 = 279E9 ; 
+KPoiss2 = 0.21 ;
+
+
+* Materiau 3 (fin de poutre)
+*young
+YounMat3 = 200.00E9 ; 
+*poisson
+KPoiss3 = 0.34 ;
+*elasticite
+Sigy03 = 13.3E8 ;  
+*ecrouissage
+H03 = 1.0E6 ; 
+
+* définition des paramètres calculs
+*** Evolution force
+
+ValF = 2.824E-3 ;
+*PasForc1 = 1.412E-4 ;
+
+*** Evolution temps 
+
+NbPsTps1 = 1000 ;
+TpsMax1 = 56.480 ;
+
+* facteur pour déterminer la rapport entre temps calcules et temps sauves
+KTpsS01 = 10 ;
+
+
+*********************************************************
+********** Définition de la géométrie de l'élément ******
+*********************************************************
+*poutre de section pentagonale
+***************************************
+***** Définition surface du "toit" ****
+***************************************
+
+* Création sommets du triangle du bas la poutre
+PT1 = POIN (0) (C) ;
+x2 = 0.5*B ;
+
+y2 = 0 ;
+
+PT2 = POIN (x2) (y2) ;
+b2 = y2-0.00001E-6 ;
+* PT2 bis permet d'inclure tous les carrés du quadrillage dans le triangle (pas d'égalité de coordonnées)
+PT2BIS = POIN (x2) (b2) ;
+XPT3 = B ;
+YPT3 = C ;
+PT3 = B YPT3 ;
+
+* Trace les lignes entre les sommets
+LIGT1 = droi 1 PT1 PT2 ;
+LIGT1B = droi 1 PT1 PT2BIS ;
+LIGT2 = droi 1 PT2 PT3 ;
+LIGT2B = droi 1 PT2BIS PT3 ;
+LIGT3 = droi 1 PT3 PT1 ;
+
+* Contour du triangle au bas de la face externe de la micropoutre 
+LIGTRIG = LIGT1 et LIGT2 et LIGT3 ;
+LIGTRIGB = LIGT1B et LIGT2B et LIGT3 ;
+	
+* Construction surface section triangulaire poutre
+STrNorm = surf LIGTRIG ;
+STrBas = surf LIGTRIGB ;
+STrBas = STrBas coul oran ;
+
+
+***********************************************
+****** Maillage de la section triangulaire ****
+***********************************************
+
+*** On créé le futur maillage intérieur du triangle du bas de la face externe de la micropoutre
+
+
+* Calcul du nombre de mailles sur la largeur du triangle.
+* Arrondi au supérieur pour avoir un nombre entier de mailles
+NbCas = B/a ; 
+NbCasLat = ENTI 'SUPE' NbCas ;
+
+* Réajustement de la largeur poutre pour avoir un nb entier de mailles 
+LargQuad = FLOT ((B / NbCasLat)) ;
+
+* Ligne de base du maillage triangle 
+LIG1 = droi (NbCasLat) PT1 PT3 ; 
+
+* Calcul de la hauteur mailles intérieures du triangle
+HautQuad = FLOT (2.00*C*(LargQuad/B)) ;
+
+* Calcule nb de mailles a mettre en hauteur du triangle  
+NbQuad0 = FLOT (C/(HautQuad)) ;
+NbQuad = ENTI 'SUPE' NbQuad0 ;
+
+* Arrondi à l'entier sup pour dépasser du sommet triangulaire de la poutre
+D = (-1)*NbQuad*HautQuad ;
+D = FLOT D ;
+
+* Construction quadrillage triangle par translation de la ligne sup.
+VEC1 = 0 D ;
+SDamier = LIG1 TRAN NbQuad VEC1 ;
+
+*TRAC (STrBas ET SDamier) ;
+
+* Maillage de l'intérieur triangle par inclusion quadrillage/triangle
+domino = INCL SDamier STrBas ;
+domino = domino coul vert ;
+
+*TRAC (domino ET STrBas);
+
+
+
+***************************************************
+**** Rajout des triangles extérieurs  manquants ***
+************* Finition du maillage ****************
+***************************************************
+
+* Complétion domino par des triangles extérieurs pour avoir maillage triangle bas de la poutre 
+* Construction arrêtes maillage par succession de triangles.
+
+Mailtri1= VIDE 'MAILLAGE'/'TRI3' ;
+
+* Construction point de symetrie : servira a faire la 2e arête automatiquement.
+xhaut = x2 ;
+yhaut = y2 + 3 ;
+PThaut = xhaut yhaut ;
+
+* Différence entre B largeur du triangle pair ou impair (sommet du maillage présent ou non)
+Modul = @MOD NbCasLat 2 ;
+
+SI (Modul EGA 0);
+* Cas pair : construction de l'arête jusqu'en bas puis symetrie
+	NbSegm = ENTI (NbCasLat/2) ;
+	PTri1 = POIN (0) (C) ;
+	Repe BO1 (NbSegm) ;
+		a1 = PTri1 plus (LargQuad 0) ;
+		a2 = PTri1 plus (LargQuad ((-1)*HautQuad)) ;
+		l1 = droi (1) a1 a2 ;
+		TR1 = cout l1 PTri1 ;
+		Mailtri1 = Mailtri1 ET TR1 ;
+		PTri1 = a2 ;
+	Fin BO1 ;
+	Mailtri2 = Mailtri1 SYME 'DROIT' PT2 PThaut ;
+	MailBor = Mailtri1 ET Mailtri2 ;
+
+SINON ;
+* Cas impair : construction jusqu'à l'avant derniere marche, symétrie 
+* Ajout du dernier triangle au sommet
+
+	NbSegm = ENTI (NbCasLat/2) ;
+	PTri1 = POIN (0) (C) ;
+	Repe BO2 (NbSegm) ;
+		a1 = PTri1 plus (LargQuad 0) ;
+		a2 = PTri1 plus (LargQuad ((-1)*HautQuad)) ;
+		l1 = droi (1) a1 a2 ;
+		TR1 = cout l1 PTri1 ;
+		Mailtri1 = Mailtri1 ET TR1 ;
+		PTri1 = a2 ;
+	Fin BO2 ;
+ 	a4 = a2 SYME 'DROIT' PT2 PThaut ;
+
+* Ajout dernier triangle sommital
+	LigTrBa1 = droi 1 a2 PT2 ;
+	LigTrBa2 = droi 1 PT2 a4 ;
+	LigTrBa3 = droi 1 a4 a2 ;
+	TrigBas = LigTrBa1 ET LigTrBa2 ET LigTrBa3 ;
+	STriBas = SURf TrigBas ;
+	Mailtri2 = Mailtri1 SYME 'DROIT' PT2 PThaut ;
+	MailBor = Mailtri1 ET Mailtri2 ET STriBas ;
+FINSI ;
+
+* Construction maille triangulaire totale et élimination des doublons.
+
+MailTri = MailBor ET domino ;
+ELIM MailTri 1E-15 ;
+
+*TRAC MailTri ;
+
+
+
+*******************************************************
+**********  Creation surface de base totale ***********
+******** (Toit Et Poutre de section carrée)************
+*******************************************************
+
+*Création surface carrée de la poutre
+NbElCarr = FLOT (Width) * (1/HautQuad) ;
+NbElCarr = ENTI 'SUPE' (NbElCarr) ;
+
+WVec = FLOT (NbElCarr*HautQuad) ;
+
+VecPout = 0 WVec ;
+
+SurfPout = LIG1 TRAN (NbElCarr) VecPout ;
+
+*TRAC SurfPout ;
+
+MailPout = MailTri ET SurfPout ;
+ELIM MailPout 1E-15 ;
+
+*TRAC MailPout ;
+
+Width = WVec ;
+
+
+********************************************************
+****** Construction de la face de base du mur **********
+********************************************************
+*** On part du toit de la poutre et on complète pour avoir une surface rectangulaire.
+
+* Extraction coordonnées dernier point a2 
+Xa2 = COOR (1) a2 ;
+Ya2 = COOR (2) a2 ;
+
+* Tracé droite rasante pointe triangle (largeur de la poutre)
+PF1 = 0 0 ;
+XPF2 = XPT3 ;
+YPF2 = 0 ;
+PF2 = XPF2 YPF2 ;
+LF1 = droi (NbCasLat) PF1 PF2 ;
+
+* Points des extrémités du mur d'encastrement
+XPF5 = (-1.0)*LargMur ;
+XPF5 = FLOT XPF5 ;
+YPF5 = C ;
+XPF6 = B + LargMur ;
+XPF6 = FLOT XPF6 ;
+YPF6 = C ;
+PF5 = XPF5 YPF5 ;
+PF6 = XPF6 YPF6 ;
+NbELF5 = ENTI (LargMur *(1/LargQuad)) ;
+NbELF6 = ENTI (LargMur *(1/LargQuad)) ;
+
+* Droites gauche et droite de la poutre
+LF5 = droi (NbELF5) PF5 PT1 ;
+LF5 = LF5 coul rouge ;
+LF6 = droi (NbELF6) PT3 PF6 ;
+LF6 = LF6 coul rouge ; 
+
+* Liaison des trois lignes niveau triangle/poutre carrée
+LF3 = LF5 ET LIG1 ET LF6 ;
+
+* Création surface du mur d'encastrement (collé à la poutre section carrée)
+SurMSupH = LF3 TRAN (NbElCarr) VecPout  ;
+SurMSupH = SurMSupH coul rouge ;
+
+* Création de lignes au niveau de l'extrémité basse du triangle
+XPF8 = XPF5 ;
+YPF8 = 0 ;
+XPF9 = XPF6 ;
+YPF9 = 0 ;
+
+PF8 = XPF8 YPF8 ;
+PF9 = XPF9 YPF9 ;
+LF8 = droi (NbELF5) PF8 PF1 ;
+LF9 = droi (NbELF6) PF2 PF9 ;
+LF10 = LF8 ET LF1 ET LF9 ;
+VecF10 = 0 Ya2 ;
+
+* Création des maillages du mur autour de la section triangulaire
+NbQuad2 = ENTI 'INFE' NbQuad0 ;
+SI (Modul EGA 0);
+	NbQuad2 = NbQuad2 + 1 ;
+	NbQuad2 = ENTI NbQuad2 ;
+	YVecBas = (-1) * C ;
+	VecBas = 0 YVecBas ;
+	SurMSupB = LF3 TRAN NbQuad2 VecBas ;
+	SurMSupB = SurMSupB coul rouge ;
+SINON ;
+	YVecBas = (-1) * (C-Ya2) ;
+	VecBas = 0 YVecBas ;
+	SurMSupB = LF3 TRAN NbQuad2 VecBas ;
+	VecFBas = 0 Ya2 ;
+	SF10 = LF10 TRAN (1) VecFBas ;
+	SurMSupB = SurMSupB ET SF10 ;
+	SurMSupB = SurMSupB coul rouge ;
+FINSI ;
+
+* Création de la surface murale au dessous de la poutre
+	Haut = HautQuad ;
+	NbElProl = (Prolonge / Haut) ;
+	NbElProl = ENTI 'SUPE' NbElProl ;
+	YVecF10 = (-1) * Prolonge ;
+	VecF10 = 0 YVecF10 ;
+	SProlong = LF10 TRAN (NbElProl) VecF10 ;
+	SurMSupB = SurMSupB ET SProlong ;
+	
+* Création surface totale mur par assemblage des surfaces précédentes	
+SurfMur = SurMSupH ET SurMSupB;
+ELIM SurfMur 1E-15 ;
+
+*TRAC (SurfMur ET MailPout) ;
+
+
+
+*********************************************************
+**************** Création du volume *********************
+*********************************************************
+
+OPTI DIME 3 ELEM CUB8 ;
+
+*** Creation du volume de la micropoutre avec différents matériaux
+
+VolPoutr = VIDE 'MAILLAGE'/'TRI3' ;
+	
+MailP1 = MailPout ;
+
+* Création volume poutre 
+VecPout1 = 0 0 LPout1 ;
+VPt1Tot = MailPout VOLU (ENTI (Lpout1/(1.0*a))) 'TRAN' VecPout1 COUL roug ;
+
+ZVecMur = FLOT ZVecMur ;
+VecVlMur = 0 0 ZVecMur ;
+NbElMur = ENTI(ZVecMur/(1.0*a)) ;
+VolMur = SurfMur VOLU (NbElMur) 'TRAN' VecVlMur COUL oran ;
+
+
+VecPout2 = 0 0 LPout2 ;
+MailP2 = FACE (2) VPt1Tot ;
+VPt2Tot = MailP2 VOLU (ENTI (LPout2/(1.0*a))) 'TRAN' VecPout2 COUL vert ;
+
+VecPout3 = 0 0 LPout3 ;
+MailP3 = FACE (2) VPt2Tot ;
+VPt3Tot = MailP3 VOLU (ENTI (LPout3/(1.0*a))) 'TRAN' VecPout3 COUL blanc ;
+
+
+Senc0 = FACE (2) VolMur ;
+
+
+* exportation en vtk du volume créé
+opti sort 'Poutre_cas1';
+sort 'VTK' VolMur 'massif' VPt1Tot 'ptltot' VPt2Tot 'pt2tot' VPt3Tot 'pt3tot' ;
+
+
+
+***********************************************
+******* Caractéristiques des matériaux ********
+***********************************************
+
+* Sépare en plusieurs volumes
+Volum01 = VPt1Tot ET VolMur ;
+ELIM Volum01 1E-15 ;
+MOD0 = 'MODELISER' Volum01 'MECANIQUE' 'ELASTIQUE'  ;
+MAT0 = MATE MOD0 'YOUN' YounMat1  'NU' KPoiss1   ;
+
+Volum02 = VPt2Tot ;
+ELIM Volum02 1E-15 ;
+MOD1 = 'MODELISER' Volum02 'MECANIQUE' 'ELASTIQUE'  ;
+MAT1 = 'MATERIAU' MOD1 'YOUN' YounMat2 'NU' KPoiss2 ;
+
+Volum03 = VPt3Tot ;
+ELIM Volum03 1E-15 ;
+MOD2 = Volum03 MODE 'MECANIQUE' 'ELASTIQUE' 'PLASTIQUE' 'CINEMATIQUE' ;
+MAT2 = MATE MOD2 'YOUN' YounMat3  'NU' KPoiss3 'SIGY' Sigy03 'H' H03   ;
+
+
+***********************************************
+******* Conditions aux limites ********
+***********************************************
+VolTot = Volum01 ET Volum02 ET Volum03 ;
+
+*** Point Appui force 
+* deux cas : num1 : contrainte sur face externe
+* num 2 point sur le dessus de la poutre
+xapp01= x2 ;
+yapp01= y2 +C + Width ;
+zapp01= LPout1 + LPout2 + LPout3 - 1E-6 ;
+
+PApp01= POINT (xapp01) (yapp01) (zapp01) ;
+Mot01= TYPE PApp01 ;
+Mot02 = TYPE VolTot ;
+*PApp02 = VolTot POIN 'PROC' PApp01 ;
+PApp02 = VolTot POIN 'PROC' PApp01 ;
+Mot02= TYPE PApp02 ;
+
+Cord01 = COOR (1) PApp02 ;
+Cord02 = COOR (2) PApp02 ;
+Cord03 = COOR (3) PApp02 ;	
+
+E2L = FACE (2) VPt3Tot ;
+
+CL1 = BLOQ UX UY UZ (Senc0); 
+CL0 = CL1;
+
+*** Force imposée ***
+NormeF1 =(-1)*ValF ;
+Vect0 = 0. NormeF1 0. ;
+Forc0 = FORC Vect0 E2L ;
+Forc1 = FORC Vect0 PApp02 ;
+
+
+	
+*E2L = FACE (2) VPt3Tot ;
+
+*CL1 = BLOQ UX UY UZ (Senc0); 
+*CL0 = CL1;
+
+*** Force imposée ***
+*NormeF1 =(-1)*ValF ;
+*Vect0 = 0. NormeF1 0. ;
+*Forc0 = FORC Vect0 E2L ;
+
+*TRAC (Forc0 vect FORC vert) (aret VolTot) ;
+
+RIG1 = RIGI MOD0 MAT0;
+RIG0 = RIG1 et CL0;
+
+
+****************************************************************
+************** Passage graphes *********************************
+****************************************************************
+
+
+SI (Graph EGA 1) ;
+	TRAC cach VPt1Tot;
+	TRAC cach Volum01 ;
+FINSI ;
+
+*****************************************************************
+*************** Résolution du pb via PASAPAS ********************
+*****************************************************************
+
+* création table vide
+TAB1 = TABLE ;
+
+
+EV02 = EVOL 'MANU' 'Temps' (PROG 0. TpsMax1) 'Forc' (PROG 0. 1) ;
+
+PasTps1 = FLOT (TpsMax1/NbPsTps1) ;
+PasTps2 = PasTps1*KTpsS01 ;
+*** force appliquee
+CHAR1 = CHAR ('MECANIQUE') Forc1 EV02 ;
+
+
+TAB1. 'MODELE' = MOD0 ET MOD1 ET MOD2 ;
+TAB1. 'CARACTERISTIQUES' = MAT0 ET MAT1 ET MAT2 ;
+TAB1. 'BLOCAGES_MECANIQUES' = CL0 ;
+TAB1. 'CHARGEMENT' = CHAR1 ;
+TAB1. 'TEMPS_CALCULES' = PROG 0. PAS PasTps1 TpsMax1 ;
+TAB1. 'TEMPS_SAUVES' = PROG 0. PAS PasTps2 TpsMax1 ;
+PASAPAS TAB1 ;
+
+* sauvegarde des calculs pour exploitation par paraview
+OPTI 'SAUV' 'fichier_sortie_calculs' ; 
+SAUV;
+
+*OPTI DONN 5;
+*Il faut ensuite depouiller avec le fichier depou
+
+FIN;
+
